@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MindCare - Student Mental Health Support</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{
+  margin:0;font-family:Arial;background:#1c1c2b;color:#fff;
+}
+header{
+  background:#282846;padding:15px;text-align:center;position:sticky;top:0;z-index:100;
+}
+nav button{
+  background:#444;margin:0 5px;padding:10px 15px;border:none;border-radius:6px;color:#fff;cursor:pointer;
+}
+nav button:hover{background:#666;}
+section{display:none;padding:20px;max-width:800px;margin:auto;}
+
+h1,h2{text-align:center;}
+
+#startForm input, #consultForm input, #consultForm textarea{
+  width:100%;padding:10px;margin:10px 0;border-radius:6px;border:none;
+}
+
+#qArea{background:#2f2f45;padding:20px;border-radius:10px;}
+.opt{
+  background:#3b3b55;margin:10px 0;padding:15px;border-radius:6px;cursor:pointer;
+}
+.opt:hover,.opt.selected{background:#5c5cff;}
+#progress{background:#555;border-radius:6px;overflow:hidden;height:10px;margin:15px 0;}
+#progFill{background:#5c5cff;height:10px;width:0;}
+
+#resultChart{max-width:400px;margin:auto;}
+
+#sosBtn{
+  display:block;margin:30px auto;background:#ff3b3b;padding:15px 25px;border:none;
+  border-radius:10px;color:#fff;font-size:18px;cursor:pointer;
+}
+
+iframe{width:100%;height:250px;border:none;border-radius:10px;margin:15px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧠 MindCare</h1>
+  <nav>
+    <button onclick="showSection('intro')">Start</button>
+    <button onclick="showSection('quiz')">Questionnaire</button>
+    <button onclick="showSection('exercises')">Exercises</button>
+    <button onclick="showSection('music')">Relax Music</button>
+    <button onclick="showSection('consult')">Consult</button>
+  </nav>
+</header>
+
+<!-- Intro Section -->
+<section id="intro" style="display:block">
+  <h2>Welcome to MindCare</h2>
+  <p>Please enter your details to begin:</p>
+  <form id="startForm" onsubmit="startQuiz(); return false;">
+    <input type="text" id="userName" placeholder="Your Name" required>
+    <input type="number" id="userAge" placeholder="Your Age" required>
+    <input type="text" id="userGender" placeholder="Your Gender" required>
+    <button type="submit">Start Questionnaire →</button>
+  </form>
+</section>
+
+<!-- Questionnaire Section -->
+<section id="quiz">
+  <h2>Mental Health Questionnaire</h2>
+  <div id="qArea">
+    <div id="qText"></div>
+    <div id="optionList"></div>
+    <div id="progress"><div id="progFill"></div></div>
+    <div style="display:flex;justify-content:space-between;">
+      <button id="prevBtn" onclick="goPrev()">← Prev</button>
+      <span id="qCount"></span>
+      <button id="nextBtn" onclick="skipOrNext()">Next →</button>
+    </div>
+  </div>
+  <canvas id="resultChart"></canvas>
+</section>
+
+<!-- Exercises Section -->
+<section id="exercises">
+  <h2>🧘 Relaxation Exercises</h2>
+  <p>Follow these guided exercises to calm your mind:</p>
+  <iframe src="https://www.youtube.com/embed/ZToicYcHIOU" title="5 Min Mindful Meditation"></iframe>
+  <iframe src="https://www.youtube.com/embed/86HUcX8ZtAk" title="Deep Breathing"></iframe>
+  <iframe src="https://www.youtube.com/embed/qHJ1S8hXhWw" title="Stretch and Relax"></iframe>
+</section>
+
+<!-- Music Section -->
+<section id="music">
+  <h2>🎵 Calming Music</h2>
+  <p>Listen to relaxing background music while studying or resting:</p>
+  <iframe src="https://www.youtube.com/embed/2OEL4P1Rz04" title="Calm Music"></iframe>
+  <iframe src="https://www.youtube.com/embed/lFcSrYw-ARY" title="LoFi Chill"></iframe>
+</section>
+
+<!-- Consult Section -->
+<section id="consult">
+  <h2>📩 Consult a Psychologist</h2>
+  <form id="consultForm" onsubmit="submitConsult(); return false;">
+    <input type="text" id="cname" placeholder="Your Name" required>
+    <input type="email" id="cemail" placeholder="Your Email" required>
+    <textarea id="cconcern" placeholder="Describe your concern..." required></textarea>
+    <button type="submit">Submit Request</button>
+  </form>
+  <div id="consultMsg" style="text-align:center;color:lightgreen;margin-top:15px;"></div>
+
+  <h3>🚨 Emergency?</h3>
+  <button id="sosBtn" onclick="window.open('tel:988')">Call SOS Helpline (988)</button>
+</section>
+
+<script>
+const QUESTIONS = [
+  // Depression (5)
+  {q:"Have you felt down or hopeless lately?",cat:"Depression"},
+  {q:"Have you lost interest in activities you enjoy?",cat:"Depression"},
+  {q:"Do you struggle to find motivation to study?",cat:"Depression"},
+  {q:"Do you often feel worthless or guilty?",cat:"Depression"},
+  {q:"Do you feel tired or low on energy?",cat:"Depression"},
+  // Anxiety (6)
+  {q:"Do you often feel nervous or on edge?",cat:"Anxiety"},
+  {q:"Do you find it hard to stop worrying?",cat:"Anxiety"},
+  {q:"Do you experience panic or rapid heartbeat?",cat:"Anxiety"},
+  {q:"Do you fear making mistakes or being judged?",cat:"Anxiety"},
+  {q:"Does worry interfere with your daily activities?",cat:"Anxiety"},
+  {q:"Do you feel tense during exams or assignments?",cat:"Anxiety"},
+  // Stress (5)
+  {q:"How often do you feel overwhelmed by your workload?",cat:"Stress"},
+  {q:"Do you feel under constant pressure to perform?",cat:"Stress"},
+  {q:"Do small problems make you feel very frustrated?",cat:"Stress"},
+  {q:"How often do you find it hard to relax after classes?",cat:"Stress"},
+  {q:"Do you feel easily irritated or moody due to stress?",cat:"Stress"},
+  // Sleep (4)
+  {q:"Do you struggle to fall asleep at night?",cat:"Sleep"},
+  {q:"Do you wake up feeling tired or unrested?",cat:"Sleep"},
+  {q:"Do you stay up late due to stress or anxiety?",cat:"Sleep"},
+  {q:"Do you have irregular sleeping patterns?",cat:"Sleep"},
+  // Anger (4)
+  {q:"Do you get angry over small issues?",cat:"Anger"},
+  {q:"Do you find it hard to control your temper?",cat:"Anger"},
+  {q:"Do you often feel resentful or bitter?",cat:"Anger"},
+  {q:"Do you get into arguments or conflicts easily?",cat:"Anger"}
+];
+
+const OPTIONS = ["Never","Several days","More than half the days","Nearly every day"];
+let currentIndex = 0;
+let answers = Array(QUESTIONS.length).fill(null);
+let chart;
+
+function showSection(id){
+  document.querySelectorAll("section").forEach(s=>s.style.display="none");
+  document.getElementById(id).style.display="block";
+}
+
+function startQuiz(){
+  const name = document.getElementById('userName').value.trim();
+  const age = document.getElementById('userAge').value.trim();
+  const gender = document.getElementById('userGender').value.trim();
+  if(!name||!age||!gender) return alert("Please fill all details");
+  showSection('quiz');
+  currentIndex = 0;
+  answers.fill(null);
+  showQuestion();
+}
+
+function showQuestion(){
+  const q = QUESTIONS[currentIndex];
+  document.getElementById("qText").textContent = q.q;
+  const optionList = document.getElementById("optionList");
+  optionList.innerHTML = "";
+
+  OPTIONS.forEach((text,i)=>{
+    const div = document.createElement("div");
+    div.className = "opt";
+    div.textContent = text;
+    if (answers[currentIndex]===i) div.classList.add("selected");
+    div.onclick = ()=>{
+      answers[currentIndex] = i;
+      showQuestion();
+    };
+    optionList.appendChild(div);
+  });
+
+  document.getElementById("qCount").textContent = `${currentIndex+1}/${QUESTIONS.length}`;
+  document.getElementById("progFill").style.width = `${(currentIndex+1)/QUESTIONS.length*100}%`;
+  document.getElementById("prevBtn").style.display = currentIndex>0?"inline-block":"none";
+  document.getElementById("nextBtn").textContent = currentIndex===QUESTIONS.length-1?"Finish →":"Next →";
+}
+
+function skipOrNext(){
+  if (currentIndex<QUESTIONS.length-1){
+    currentIndex++;
+    showQuestion();
+  } else {
+    showResults();
+  }
+}
+
+function goPrev(){
+  if (currentIndex>0){
+    currentIndex--;
+    showQuestion();
+  }
+}
+
+function showResults(){
+  const scores = {};
+  QUESTIONS.forEach((q,i)=>{
+    const score = answers[i] ?? 0;
+    scores[q.cat] = (scores[q.cat]||0)+score;
+  });
+  const categories = Object.keys(scores);
+  const values = categories.map(c=>Math.round(scores[c]/(QUESTIONS.filter(q=>q.cat===c).length*3)*100));
+
+  if(chart) chart.destroy();
+  chart = new Chart(document.getElementById('resultChart'), {
+    type: 'doughnut',
+    data: {
+      labels: categories,
+      datasets: [{
+        data: values,
+        backgroundColor: ['#ffd27a','#ff7bb0','#7af0e3','#7ad0ff','#d77aff']
+      }]
+    },
+    options: {plugins:{legend:{labels:{color:'#fff'}}}}
+  });
+}
+
+function submitConsult(){
+  const n=document.getElementById('cname').value.trim();
+  const e=document.getElementById('cemail').value.trim();
+  const c=document.getElementById('cconcern').value.trim();
+  if(!n||!e||!c) return alert("Please fill all fields");
+  document.getElementById('consultMsg').textContent = "✅ Request sent! A psychologist will contact you soon.";
+  document.getElementById('consultForm').reset();
+}
+</script>
+</body>
+</html>
